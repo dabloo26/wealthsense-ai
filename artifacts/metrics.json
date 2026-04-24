@@ -1,0 +1,406 @@
+{
+  "data_config": {
+    "tickers": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "TSLA",
+      "SPY",
+      "QQQ",
+      "VOO",
+      "AMZN",
+      "GOOGL",
+      "META"
+    ],
+    "start_date": "2015-01-01",
+    "end_date": "2024-12-31",
+    "sequence_length": 30,
+    "target_column": "Close",
+    "feature_columns": [
+      "Close",
+      "Volume",
+      "SMA_10",
+      "SMA_30",
+      "EMA_12",
+      "RSI_14",
+      "Daily_Return",
+      "Volatility_10"
+    ]
+  },
+  "train_config": {
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "dropout": 0.2,
+    "epochs": 30,
+    "patience": 6,
+    "hidden_size": 64,
+    "num_layers": 2,
+    "transformer_heads": 4,
+    "transformer_dim": 128,
+    "seed": 42
+  },
+  "device": "cpu",
+  "results": [
+    {
+      "ticker": "AAPL",
+      "model": "lstm",
+      "mae": 126.88213841247558,
+      "rmse": 128.05570009134263,
+      "mape": 0.7324017954531838,
+      "directional_accuracy": 0.2891566265060241,
+      "interval_coverage": 0.408
+    },
+    {
+      "ticker": "AAPL",
+      "model": "gru",
+      "mae": 126.93666305541993,
+      "rmse": 128.1097258045825,
+      "mape": 0.7327212957976038,
+      "directional_accuracy": 0.14056224899598393,
+      "interval_coverage": 0.408
+    },
+    {
+      "ticker": "AAPL",
+      "model": "transformer",
+      "mae": 38.41484814453125,
+      "rmse": 41.860244059408686,
+      "mape": 0.21458791590747303,
+      "directional_accuracy": 0.4819277108433735,
+      "interval_coverage": 0.408
+    },
+    {
+      "ticker": "AAPL",
+      "model": "ensemble",
+      "mae": 65.30601714303505,
+      "rmse": 67.53707394138719,
+      "mape": 0.3716436496484474,
+      "directional_accuracy": 0.4819277108433735,
+      "interval_coverage": 0.408
+    },
+    {
+      "ticker": "MSFT",
+      "model": "lstm",
+      "mae": 261.2568063812256,
+      "rmse": 264.4379387892336,
+      "mape": 0.8290312025251507,
+      "directional_accuracy": 0.18473895582329317,
+      "interval_coverage": 0.316
+    },
+    {
+      "ticker": "MSFT",
+      "model": "gru",
+      "mae": 261.52024085998534,
+      "rmse": 264.69820763328596,
+      "mape": 0.8298859272558827,
+      "directional_accuracy": 0.17269076305220885,
+      "interval_coverage": 0.316
+    },
+    {
+      "ticker": "MSFT",
+      "model": "transformer",
+      "mae": 105.62442364501953,
+      "rmse": 113.26352438077703,
+      "mape": 0.3240757733852786,
+      "directional_accuracy": 0.5421686746987951,
+      "interval_coverage": 0.316
+    },
+    {
+      "ticker": "MSFT",
+      "model": "ensemble",
+      "mae": 164.295788317536,
+      "rmse": 169.30826187441403,
+      "mape": 0.5144373397811669,
+      "directional_accuracy": 0.5421686746987951,
+      "interval_coverage": 0.316
+    },
+    {
+      "ticker": "NVDA",
+      "model": "lstm",
+      "mae": 12.704662467956544,
+      "rmse": 15.657320037735184,
+      "mape": 0.29392879828408214,
+      "directional_accuracy": 0.4859437751004016,
+      "interval_coverage": 0.316
+    },
+    {
+      "ticker": "NVDA",
+      "model": "gru",
+      "mae": 12.923230709075927,
+      "rmse": 15.895659036880717,
+      "mape": 0.2990453562157868,
+      "directional_accuracy": 0.5341365461847389,
+      "interval_coverage": 0.268
+    },
+    {
+      "ticker": "NVDA",
+      "model": "transformer",
+      "mae": 10.28547322845459,
+      "rmse": 12.668609551864309,
+      "mape": 0.24098707892855514,
+      "directional_accuracy": 0.44176706827309237,
+      "interval_coverage": 0.392
+    },
+    {
+      "ticker": "NVDA",
+      "model": "ensemble",
+      "mae": 12.217297315100057,
+      "rmse": 15.141752138282477,
+      "mape": 0.28158972361412354,
+      "directional_accuracy": 0.4538152610441767,
+      "interval_coverage": 0.332
+    },
+    {
+      "ticker": "TSLA",
+      "model": "lstm",
+      "mae": 171.84156199645997,
+      "rmse": 176.86014662646096,
+      "mape": 0.7805271445523196,
+      "directional_accuracy": 0.3172690763052209,
+      "interval_coverage": 1.0
+    },
+    {
+      "ticker": "TSLA",
+      "model": "gru",
+      "mae": 166.95671298217775,
+      "rmse": 172.11768059047378,
+      "mape": 0.7570342583526242,
+      "directional_accuracy": 0.4899598393574297,
+      "interval_coverage": 1.0
+    },
+    {
+      "ticker": "TSLA",
+      "model": "transformer",
+      "mae": 23.479592834472655,
+      "rmse": 26.916659217694107,
+      "mape": 0.11164222022722786,
+      "directional_accuracy": 0.46987951807228917,
+      "interval_coverage": 1.0
+    },
+    {
+      "ticker": "TSLA",
+      "model": "ensemble",
+      "mae": 64.01195166582649,
+      "rmse": 71.28948682098158,
+      "mape": 0.2761130140804552,
+      "directional_accuracy": 0.46987951807228917,
+      "interval_coverage": 1.0
+    },
+    {
+      "ticker": "SPY",
+      "model": "lstm",
+      "mae": 371.1963815460205,
+      "rmse": 371.90701584760984,
+      "mape": 0.8681843566034974,
+      "directional_accuracy": 0.09236947791164658,
+      "interval_coverage": 0.808
+    },
+    {
+      "ticker": "SPY",
+      "model": "gru",
+      "mae": 371.4005913848877,
+      "rmse": 372.11083581154827,
+      "mape": 0.868663574075958,
+      "directional_accuracy": 0.1285140562248996,
+      "interval_coverage": 0.808
+    },
+    {
+      "ticker": "SPY",
+      "model": "transformer",
+      "mae": 167.12145678710937,
+      "rmse": 168.7016081992828,
+      "mape": 0.3892764978338555,
+      "directional_accuracy": 0.5020080321285141,
+      "interval_coverage": 0.8
+    },
+    {
+      "ticker": "SPY",
+      "model": "ensemble",
+      "mae": 261.2236166151558,
+      "rmse": 262.23507842496906,
+      "mape": 0.6101084476352977,
+      "directional_accuracy": 0.5020080321285141,
+      "interval_coverage": 0.808
+    },
+    {
+      "ticker": "QQQ",
+      "model": "lstm",
+      "mae": 290.2980810699463,
+      "rmse": 292.6163789789771,
+      "mape": 0.8376337006249102,
+      "directional_accuracy": 0.060240963855421686,
+      "interval_coverage": 0.52
+    },
+    {
+      "ticker": "QQQ",
+      "model": "gru",
+      "mae": 291.27510585021975,
+      "rmse": 293.5856889390432,
+      "mape": 0.8404932557225018,
+      "directional_accuracy": 0.06827309236947791,
+      "interval_coverage": 0.52
+    },
+    {
+      "ticker": "QQQ",
+      "model": "transformer",
+      "mae": 119.98347277832032,
+      "rmse": 125.48942415707933,
+      "mape": 0.3391565668091499,
+      "directional_accuracy": 0.5783132530120482,
+      "interval_coverage": 0.52
+    },
+    {
+      "ticker": "QQQ",
+      "model": "ensemble",
+      "mae": 190.8092282503388,
+      "rmse": 194.31840759795563,
+      "mape": 0.546449527979592,
+      "directional_accuracy": 0.5783132530120482,
+      "interval_coverage": 0.52
+    },
+    {
+      "ticker": "VOO",
+      "model": "lstm",
+      "mae": 336.07985818481444,
+      "rmse": 336.7457668781321,
+      "mape": 0.8551031465891338,
+      "directional_accuracy": 0.09236947791164658,
+      "interval_coverage": 0.824
+    },
+    {
+      "ticker": "VOO",
+      "model": "gru",
+      "mae": 337.2930290374756,
+      "rmse": 337.9565474150853,
+      "mape": 0.858200379323685,
+      "directional_accuracy": 0.10441767068273092,
+      "interval_coverage": 0.824
+    },
+    {
+      "ticker": "VOO",
+      "model": "transformer",
+      "mae": 144.1716587524414,
+      "rmse": 145.71813696411314,
+      "mape": 0.3651593954546172,
+      "directional_accuracy": 0.570281124497992,
+      "interval_coverage": 0.824
+    },
+    {
+      "ticker": "VOO",
+      "model": "ensemble",
+      "mae": 230.35607182299873,
+      "rmse": 231.3268427437363,
+      "mape": 0.5851891518879356,
+      "directional_accuracy": 0.570281124497992,
+      "interval_coverage": 0.824
+    },
+    {
+      "ticker": "AMZN",
+      "model": "lstm",
+      "mae": 71.60509678649902,
+      "rmse": 74.04800076481912,
+      "mape": 0.5793188588335086,
+      "directional_accuracy": 0.13253012048192772,
+      "interval_coverage": 1.0
+    },
+    {
+      "ticker": "AMZN",
+      "model": "gru",
+      "mae": 71.72913806152344,
+      "rmse": 74.1679570835121,
+      "mape": 0.580367363897668,
+      "directional_accuracy": 0.22088353413654618,
+      "interval_coverage": 1.0
+    },
+    {
+      "ticker": "AMZN",
+      "model": "transformer",
+      "mae": 7.785922210693359,
+      "rmse": 9.960956717612707,
+      "mape": 0.06128758596584004,
+      "directional_accuracy": 0.4819277108433735,
+      "interval_coverage": 0.992
+    },
+    {
+      "ticker": "AMZN",
+      "model": "ensemble",
+      "mae": 13.315090971156755,
+      "rmse": 14.215467927371055,
+      "mape": 0.10940731239426672,
+      "directional_accuracy": 0.4819277108433735,
+      "interval_coverage": 1.0
+    },
+    {
+      "ticker": "GOOGL",
+      "model": "lstm",
+      "mae": 72.76530541992187,
+      "rmse": 74.53297050817945,
+      "mape": 0.6046408345454828,
+      "directional_accuracy": 0.24096385542168675,
+      "interval_coverage": 0.924
+    },
+    {
+      "ticker": "GOOGL",
+      "model": "gru",
+      "mae": 72.93969139099121,
+      "rmse": 74.70323290574105,
+      "mape": 0.6061386673425538,
+      "directional_accuracy": 0.13654618473895583,
+      "interval_coverage": 0.924
+    },
+    {
+      "ticker": "GOOGL",
+      "model": "transformer",
+      "mae": 7.945710266113282,
+      "rmse": 9.65132754001531,
+      "mape": 0.06449701209965558,
+      "directional_accuracy": 0.4939759036144578,
+      "interval_coverage": 0.94
+    },
+    {
+      "ticker": "GOOGL",
+      "model": "ensemble",
+      "mae": 18.91051985780083,
+      "rmse": 21.49571783882852,
+      "mape": 0.1507011318442189,
+      "directional_accuracy": 0.4939759036144578,
+      "interval_coverage": 0.924
+    },
+    {
+      "ticker": "META",
+      "model": "lstm",
+      "mae": 205.78414813232422,
+      "rmse": 215.2104454522621,
+      "mape": 0.7706911271164629,
+      "directional_accuracy": 0.23293172690763053,
+      "interval_coverage": 0.316
+    },
+    {
+      "ticker": "META",
+      "model": "gru",
+      "mae": 206.43101567077636,
+      "rmse": 215.82906457747606,
+      "mape": 0.7733570462097566,
+      "directional_accuracy": 0.040160642570281124,
+      "interval_coverage": 0.316
+    },
+    {
+      "ticker": "META",
+      "model": "transformer",
+      "mae": 56.866165649414064,
+      "rmse": 71.15325730002672,
+      "mape": 0.1891550458370802,
+      "directional_accuracy": 0.5341365461847389,
+      "interval_coverage": 0.36
+    },
+    {
+      "ticker": "META",
+      "model": "ensemble",
+      "mae": 102.17345516486161,
+      "rmse": 113.97695522875242,
+      "mape": 0.36342017702188306,
+      "directional_accuracy": 0.5341365461847389,
+      "interval_coverage": 0.336
+    }
+  ]
+}
