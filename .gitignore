@@ -1,0 +1,8 @@
+.DS_Store
+.cursor/
+.env
+.venv/
+.venv313/
+__pycache__/
+*.pyc
+artifacts/wealthsense_backend.db

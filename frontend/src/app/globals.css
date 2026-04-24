@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+:root {
+  --ws-primary: #1b2b4b;
+  --ws-accent: #00b4a6;
+  --ws-success: #4caf7d;
+  --ws-warning: #f5a623;
+  --ws-background: #f8f9fb;
+  --ws-text: #1a1a2e;
+  --ws-muted: #5f6472;
+  --ws-surface: #ffffff;
+  --ws-border: #d9deea;
+
+  --background: var(--ws-background);
+  --foreground: var(--ws-text);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ws-primary: var(--ws-primary);
+  --color-ws-accent: var(--ws-accent);
+  --color-ws-success: var(--ws-success);
+  --color-ws-warning: var(--ws-warning);
+  --color-ws-surface: var(--ws-surface);
+  --color-ws-border: var(--ws-border);
+  --color-ws-muted: var(--ws-muted);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  font-weight: 400;
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--ws-primary);
+  letter-spacing: -0.01em;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: clamp(2rem, 4vw, 2.5rem);
+}
+
+h2 {
+  font-size: clamp(1.75rem, 3vw, 2rem);
+}
+
+h3 {
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+}
+
+p,
+span,
+label,
+button,
+input,
+textarea,
+select {
+  font-size: max(14px, 1rem);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  min-height: 44px;
+}
+
+button,
+a[href],
+label[for],
+label {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ws-accent);
+  outline-offset: 2px;
+}
+
+.ws-card {
+  background: var(--ws-surface);
+  border: 1px solid var(--ws-border);
+  border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(27, 43, 75, 0.06);
+}
+
+.ws-animate-fade-in {
+  animation: wsFadeIn 500ms ease both;
+}
+
+.ws-animate-stagger-1 {
+  animation-delay: 100ms;
+}
+
+.ws-animate-stagger-2 {
+  animation-delay: 200ms;
+}
+
+.ws-animate-progress {
+  animation: wsProgressIn 800ms ease both;
+}
+
+@keyframes wsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wsProgressIn {
+  from {
+    transform: scaleX(0.92);
+    opacity: 0.2;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .ws-mobile-scroll-hint::after {
+    content: "scroll to see more ->";
+    display: block;
+    margin-top: 8px;
+    color: var(--ws-muted);
+    font-size: 14px;
+  }
+}
