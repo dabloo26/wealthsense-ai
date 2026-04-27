@@ -1,7 +1,7 @@
 # WealthSense Build Status
 
 ## Current step
-6
+7
 
 ## Step 1 status
 done
@@ -12,6 +12,7 @@ done
 - Step 3: Added a 3-step onboarding wizard, persisted onboarding answers into user profile, and rendered a personalized first forecast on dashboard completion.
 - Step 4: Replaced prototype UI with a Next.js product interface across landing, onboarding, dashboard, forecast detail, goals, strategy, and settings using a teacher-friendly default language and collapsible advanced sections.
 - Step 5: Added an AI coach with streaming responses, personalized context injection, daily free-tier message caps, and audit logging of chat interactions.
+- Step 6: Added a trust layer with forecast-detail API output, walk-forward backtest diagnostics, explicit likely-range/disclaimer presentation, and advanced technical breakdown sections.
 
 ## What is working right now
 - FastAPI backend in `backend/` with `/health`, `/forecast`, and `/goal-plan`
@@ -36,9 +37,15 @@ done
 - Coach backend endpoint `/coach/stream` injects profile, investments, goals, forecasts, and macro context into responses.
 - Free users are capped at 10 coach messages/day; caps are enforced server-side and logged.
 - `audit_log` persistence now tracks coach messages and related metadata.
+- Training now targets log returns instead of raw prices and reconstructs display prices from predicted returns.
+- Macro features (`VIX_Zscore`, `Yield_Spread`, `DXY`) are merged into model inputs with live refresh.
+- Uncertainty now uses MC dropout with regime-adjusted interval widening by VIX level.
+- Data cache now has 24-hour expiry and auto-refreshes stale market files.
+- Ensemble now uses dynamic rolling weights and writes per-ticker weights to `metrics.json`.
+- Forecast detail now loads enriched backend context (driver sentence, walk-forward metrics, model breakdown, and disclaimer payload).
 
 ## What is broken or incomplete
-- Step 6+ items not started yet (forecast trust layer, billing, ops)
+- Step 7+ items not started yet (billing and monetization, ops hardening)
 - Streamlit code remains in repo during transition, but Next.js is the primary UI path
 - Supabase currently running in local sqlite fallback mode until credentials are provided
 

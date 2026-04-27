@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getForecast } from "@/lib/api";
+import { getForecastDetail } from "@/lib/api";
 import { getAssetBySlug } from "@/lib/assets";
 
 type Props = {
@@ -13,7 +13,7 @@ export default async function ForecastDetailPage({ params }: Props) {
   const asset = getAssetBySlug(slug);
   if (!asset) return notFound();
 
-  const data = await getForecast(asset.ticker, 30).catch(() => null);
+  const data = await getForecastDetail(asset.ticker, 30).catch(() => null);
   const latest = data?.forecast?.[data.forecast.length - 1];
   const min = data?.forecast ? Math.min(...data.forecast.map((x: { pred_lower: number }) => x.pred_lower)) : 0;
   const max = data?.forecast ? Math.max(...data.forecast.map((x: { pred_upper: number }) => x.pred_upper)) : 0;
@@ -26,9 +26,9 @@ export default async function ForecastDetailPage({ params }: Props) {
             <CardTitle>{asset.name}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-[#3d4558]">{asset.description}</p>
+            <p className="text-[#3d4558]">{data?.description ?? asset.description}</p>
             <p className="text-lg">
-              In the next 30 days, {asset.name} is most likely to go up between 4% and 11%.
+              In the next 30 days, {asset.name} is most likely to move within a likely range of ${min.toFixed(2)} to ${max.toFixed(2)}.
             </p>
             <div className="ws-mobile-scroll-hint overflow-x-auto">
               <svg width="760" height="220" viewBox="0 0 760 220" role="img" aria-label="History and forecast range chart">
@@ -41,10 +41,8 @@ export default async function ForecastDetailPage({ params }: Props) {
                 <text x="700" y="164" fill="#1a1a2e" fontSize="14">Worst case</text>
               </svg>
             </div>
-            <p className="text-[14px] text-[#3d4558]">
-              What is pushing this prediction: strong recent performance, calm market conditions, and positive news sentiment.
-            </p>
-            <p className="text-[14px] text-[#5f6472]">This is not financial advice. All predictions carry uncertainty.</p>
+            <p className="text-[14px] text-[#3d4558]">{data?.driver_sentence ?? "What is pushing this prediction: recent trend and macro context."}</p>
+            <p className="text-[14px] text-[#5f6472]">{data?.disclaimer ?? "Not financial advice. Predictions carry uncertainty."}</p>
             <p className="text-[14px] text-[#3d4558]">
               Text version: {asset.name} is predicted to be between ${min.toFixed(2)} and ${max.toFixed(2)} in 30 days, most likely around $
               {(latest?.predicted ?? 0).toFixed(2)}.
@@ -56,10 +54,19 @@ export default async function ForecastDetailPage({ params }: Props) {
           <summary className="cursor-pointer text-[16px] font-medium">Want to dig deeper?</summary>
           <div className="mt-4 space-y-3 text-[14px] text-[#3d4558]">
             <p>SHAP waterfall chart and feature-level contribution breakdown</p>
-            <p>Model breakdown: LSTM / GRU / TFT predictions and weights</p>
-            <p>Backtest: Sharpe, Sortino, Max Drawdown, Hit Rate</p>
-            <p>Raw confidence intervals and walk-forward validation</p>
-            <p>Regime detection and HMM state probabilities</p>
+            <p>
+              Model breakdown:{" "}
+              {data?.model_breakdown?.map((m: { model: string; mae: number }) => `${m.model} (MAE ${m.mae.toFixed(4)})`).join(", ") || "loading"}
+            </p>
+            <p>
+              Backtest: MAE {data?.backtest?.mae?.toFixed(4) ?? "n/a"}, Hit Rate{" "}
+              {data?.backtest ? `${(data.backtest.hit_rate * 100).toFixed(1)}%` : "n/a"}, Max Drawdown{" "}
+              {data?.backtest ? `${(data.backtest.max_drawdown * 100).toFixed(1)}%` : "n/a"}
+            </p>
+            <p>Raw confidence intervals and walk-forward validation ({data?.walk_forward?.length ?? 0} points)</p>
+            <p>
+              Regime detection: VIX {data?.macro?.vix_close?.toFixed?.(2) ?? "n/a"}, Fed {data?.macro?.fed_funds_rate?.toFixed?.(2) ?? "n/a"}
+            </p>
             <p>Export forecast as CSV</p>
           </div>
         </details>

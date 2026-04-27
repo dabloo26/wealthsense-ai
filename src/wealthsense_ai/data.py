@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +10,8 @@ import yfinance as yf
 from sklearn.preprocessing import StandardScaler
 
 from .config import DataConfig, PathsConfig
+
+MAX_CACHE_AGE_HOURS = 24
 
 
 @dataclass(slots=True)
@@ -35,16 +38,69 @@ def _compute_rsi(close: pd.Series, period: int = 14) -> pd.Series:
     return 100.0 - (100.0 / (1.0 + rs))
 
 
-def _engineer_features(frame: pd.DataFrame) -> pd.DataFrame:
+def _fetch_macro_features(start_date: str, end_date: str) -> pd.DataFrame:
+    """
+    Download macro indicators and return a DataFrame indexed by Date.
+    All values forward-filled to ensure no gaps on trading days.
+    """
+    end = end_date if end_date != "2024-12-31" else datetime.date.today().strftime("%Y-%m-%d")
+    macro_tickers = {
+        "^VIX": "VIX",
+        "^TNX": "Yield_10Y",
+        "^IRX": "Yield_3M",
+        "DX-Y.NYB": "DXY",
+    }
+
+    frames: list[pd.DataFrame] = []
+    for ticker, col_name in macro_tickers.items():
+        try:
+            df = yf.download(
+                ticker,
+                start=start_date,
+                end=end,
+                auto_adjust=False,
+                progress=False,
+            ).reset_index()
+            df = _normalize_raw_frame(df)
+            df = df[["Date", "Close"]].rename(columns={"Close": col_name})
+            frames.append(df)
+        except Exception:
+            pass
+
+    if not frames:
+        return pd.DataFrame()
+
+    macro = frames[0]
+    for f in frames[1:]:
+        macro = macro.merge(f, on="Date", how="outer")
+
+    macro = macro.sort_values("Date").ffill().bfill()
+    if "Yield_10Y" in macro.columns and "Yield_3M" in macro.columns:
+        macro["Yield_Spread"] = macro["Yield_10Y"] - macro["Yield_3M"]
+    if "VIX" in macro.columns:
+        macro["VIX_Zscore"] = ((macro["VIX"] - macro["VIX"].rolling(252).mean()) / macro["VIX"].rolling(252).std()).fillna(0)
+    return macro
+
+
+def _engineer_features(frame: pd.DataFrame, macro_df: pd.DataFrame | None = None) -> pd.DataFrame:
     df = frame.copy()
     if "Date" not in df.columns:
         df = df.reset_index(drop=False).rename(columns={"index": "Date"})
+    df["Log_Return"] = np.log(df["Close"] / df["Close"].shift(1))
     df["SMA_10"] = df["Close"].rolling(10).mean()
     df["SMA_30"] = df["Close"].rolling(30).mean()
     df["EMA_12"] = df["Close"].ewm(span=12, adjust=False).mean()
     df["RSI_14"] = _compute_rsi(df["Close"], period=14)
     df["Daily_Return"] = df["Close"].pct_change()
     df["Volatility_10"] = df["Daily_Return"].rolling(10).std()
+    if macro_df is not None and not macro_df.empty:
+        macro = macro_df.copy()
+        macro["Date"] = pd.to_datetime(macro["Date"], errors="coerce")
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+        df = df.merge(macro, on="Date", how="left")
+        macro_cols = [c for c in ["VIX", "Yield_10Y", "Yield_3M", "DXY", "Yield_Spread", "VIX_Zscore"] if c in df.columns]
+        if macro_cols:
+            df[macro_cols] = df[macro_cols].ffill().fillna(0)
     out = df.dropna().copy()
     out["Date"] = pd.to_datetime(out["Date"])
     out = out.loc[:, ~out.columns.duplicated()]
@@ -68,15 +124,20 @@ def _build_sequences(
 
 
 def _download_or_load_cache(ticker: str, data_cfg: DataConfig, cache_dir: Path) -> pd.DataFrame:
-    cache_file = cache_dir / f"{ticker}_{data_cfg.start_date}_{data_cfg.end_date}.csv"
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    effective_end = today if data_cfg.end_date < today else data_cfg.end_date
+    cache_file = cache_dir / f"{ticker}_{data_cfg.start_date}_{effective_end}.csv"
     if cache_file.exists():
-        cached = pd.read_csv(cache_file)
-        return _normalize_raw_frame(cached)
+        cache_age = datetime.datetime.now() - datetime.datetime.fromtimestamp(cache_file.stat().st_mtime)
+        if cache_age.total_seconds() < MAX_CACHE_AGE_HOURS * 3600:
+            cached = pd.read_csv(cache_file, on_bad_lines="skip", engine="python")
+            return _normalize_raw_frame(cached)
+        print(f"Cache expired for {ticker}, re-fetching...")
 
     df = yf.download(
         ticker,
         start=data_cfg.start_date,
-        end=data_cfg.end_date,
+        end=effective_end,
         auto_adjust=False,
         progress=False,
     ).reset_index()
@@ -110,7 +171,8 @@ def _normalize_raw_frame(df: pd.DataFrame) -> pd.DataFrame:
 
 def prepare_ticker_data(data_cfg: DataConfig, paths_cfg: PathsConfig, ticker: str) -> PreparedTickerData:
     raw = _download_or_load_cache(ticker=ticker, data_cfg=data_cfg, cache_dir=paths_cfg.data_cache_dir)
-    fe = _engineer_features(raw)
+    macro = _fetch_macro_features(data_cfg.start_date, data_cfg.end_date)
+    fe = _engineer_features(raw, macro_df=macro)
 
     feature_values = fe[data_cfg.feature_columns].astype(float).values
     target_values = fe[data_cfg.target_column].astype(float).values

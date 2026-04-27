@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from .auth import auth_provider_mode, issue_mock_token, validate_token
 from .coach import build_coach_context, generate_coach_text, stream_tokens
 from .schemas import ForecastRequest, GoalPlanRequest, LoginRequest, PortfolioRequest, ProfileRequest
-from .services import compute_goal_plan, fetch_macro_snapshot, live_forecast
+from .services import compute_goal_plan, fetch_macro_snapshot, forecast_detail, live_forecast
 from .storage import PersistenceStore
 
 
@@ -122,6 +122,14 @@ def forecast(payload: ForecastRequest) -> dict[str, object]:
         result = live_forecast(ticker=payload.ticker.upper(), horizon_days=payload.horizon_days, macro=macro)
         store.save_forecast(result)
         return result
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/forecast-detail/{ticker}")
+def forecast_detail_route(ticker: str, horizon_days: int = Query(default=30, ge=7, le=365)) -> dict[str, object]:
+    try:
+        return forecast_detail(ticker=ticker.upper(), horizon_days=horizon_days)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

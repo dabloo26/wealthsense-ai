@@ -16,7 +16,14 @@ class LSTMRegressor(nn.Module):
             dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
         )
-        self.head = nn.Sequential(nn.Dropout(dropout), nn.Linear(hidden_size, 1))
+        self.head = nn.Sequential(
+            nn.LayerNorm(hidden_size),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size // 2, 1),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out, _ = self.lstm(x)
@@ -33,7 +40,14 @@ class GRURegressor(nn.Module):
             dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
         )
-        self.head = nn.Sequential(nn.Dropout(dropout), nn.Linear(hidden_size, 1))
+        self.head = nn.Sequential(
+            nn.LayerNorm(hidden_size),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size // 2, 1),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out, _ = self.gru(x)
@@ -78,11 +92,16 @@ class TransformerRegressor(nn.Module):
         self.head = nn.Sequential(
             nn.LayerNorm(model_dim),
             nn.Dropout(dropout),
-            nn.Linear(model_dim, 1),
+            nn.Linear(model_dim, model_dim // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(model_dim // 2, 1),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        seq_len = x.size(1)
+        mask = torch.triu(torch.ones(seq_len, seq_len, device=x.device), diagonal=1).bool()
         z = self.input_proj(x)
         z = self.pos_enc(z)
-        z = self.encoder(z)
+        z = self.encoder(z, mask=mask)
         return self.head(z[:, -1, :]).squeeze(-1)

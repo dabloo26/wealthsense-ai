@@ -16,6 +16,12 @@ export async function getForecast(ticker: string, horizonDays: number) {
   return resp.json();
 }
 
+export async function getForecastDetail(ticker: string, horizonDays: number) {
+  const resp = await fetch(`${API_BASE}/forecast-detail/${ticker}?horizon_days=${horizonDays}`, { cache: "no-store" });
+  if (!resp.ok) throw new Error("Forecast detail failed");
+  return resp.json();
+}
+
 export async function loginDemo(email = "demo@wealthsense.ai", name = "Demo User") {
   const resp = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
