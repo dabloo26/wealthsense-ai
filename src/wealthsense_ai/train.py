@@ -8,15 +8,25 @@ import numpy as np
 import pandas as pd
 import torch
 import yfinance as yf
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from .config import DataConfig, PathsConfig, TrainConfig
-from .data import PreparedTickerData, prepare_ticker_data
+from .data import PreparedTickerData, prepare_ticker_data, reconstruct_prices
 from .models import GRURegressor, LSTMRegressor, TransformerRegressor
+from .regime import detect_market_regime
 from .strategy import directional_accuracy, evaluate_buy_and_hold, evaluate_trading_strategy
-from .uncertainty import calibration_report, interval_coverage, mc_dropout_predict, regime_adjusted_intervals
+from .tft_model import TFTRegressor
+from .uncertainty import (
+    apply_conformal_correction,
+    calibration_report,
+    conformal_quantile,
+    interval_coverage,
+    mc_dropout_predict,
+    regime_adjusted_intervals,
+)
 
 
 def _seed_all(seed: int) -> None:
@@ -44,6 +54,9 @@ def _train_model(
         lr=train_cfg.learning_rate,
         weight_decay=train_cfg.weight_decay,
     )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optim, mode="min", patience=5, factor=0.5
+    )
     model.to(device)
     best_loss = float("inf")
     best_state = None
@@ -69,6 +82,7 @@ def _train_model(
                 pred = model(xb)
                 val_losses.append(criterion(pred, yb).item())
         epoch_val = float(np.mean(val_losses))
+        scheduler.step(epoch_val)
         if epoch_val < best_loss:
             best_loss = epoch_val
             best_state = model.state_dict()
@@ -133,6 +147,22 @@ def _dynamic_ensemble(
     return ensemble, dict(zip(model_names, weights.tolist()))
 
 
+def _stacking_ensemble(
+    test_pred_map: dict[str, np.ndarray],
+    val_pred_map: dict[str, np.ndarray],
+    val_true: np.ndarray,
+) -> tuple[np.ndarray, dict[str, float]]:
+    model_names = list(test_pred_map.keys())
+    x_val = np.column_stack([val_pred_map[m] for m in model_names])
+    x_test = np.column_stack([test_pred_map[m] for m in model_names])
+    meta = Ridge(alpha=1.0)
+    meta.fit(x_val, val_true)
+    ensemble = meta.predict(x_test)
+    weights = {name: float(coef) for name, coef in zip(model_names, meta.coef_)}
+    weights["intercept"] = float(meta.intercept_)
+    return ensemble, weights
+
+
 def _build_models(input_size: int, train_cfg: TrainConfig) -> dict[str, nn.Module]:
     return {
         "lstm": LSTMRegressor(
@@ -152,6 +182,11 @@ def _build_models(input_size: int, train_cfg: TrainConfig) -> dict[str, nn.Modul
             model_dim=train_cfg.transformer_dim,
             heads=train_cfg.transformer_heads,
             num_layers=2,
+            dropout=train_cfg.dropout,
+        ),
+        "tft": TFTRegressor(
+            input_size=input_size,
+            hidden_size=train_cfg.hidden_size,
             dropout=train_cfg.dropout,
         ),
     }
@@ -174,7 +209,10 @@ def _evaluate_one(
     truth = ticker_data.test_y
     val_truth = ticker_data.val_y
     current_vix = _latest_close_scalar("^VIX")
+    val_lower, val_upper = regime_adjusted_intervals(val_lower, val_upper, current_vix=current_vix)
     lower, upper = regime_adjusted_intervals(lower, upper, current_vix=current_vix)
+    qhat = conformal_quantile(y_cal=val_truth, lower_cal=val_lower, upper_cal=val_upper, alpha=0.1)
+    lower, upper = apply_conformal_correction(lower, upper, qhat=qhat)
     calib = calibration_report(truth, test_samples)
 
     mae = float(mean_absolute_error(truth, preds))
@@ -182,12 +220,17 @@ def _evaluate_one(
     mape = float(mean_absolute_percentage_error(truth, preds))
     dacc = directional_accuracy(truth, preds)
     coverage = interval_coverage(truth, lower, upper)
-    last_known_price = float(ticker_data.full_frame["Close"].iloc[-len(truth) - 1])
-    actual_prices = _returns_to_prices(last_known_price, truth)
-    pred_prices = _returns_to_prices(last_known_price, preds)
-    lower_prices = _returns_to_prices(last_known_price, lower)
-    upper_prices = _returns_to_prices(last_known_price, upper)
-    strategy = evaluate_trading_strategy(actual_prices=actual_prices, predicted_prices=pred_prices)
+    last_train_price = float(
+        ticker_data.full_frame.loc[
+            ticker_data.full_frame["Date"] < ticker_data.test_dates.iloc[0],
+            "Close",
+        ].iloc[-1]
+    )
+    reconstructed_prices = reconstruct_prices(last_train_price, preds)
+    actual_prices = reconstruct_prices(last_train_price, truth)
+    lower_prices = reconstruct_prices(last_train_price, lower)
+    upper_prices = reconstruct_prices(last_train_price, upper)
+    strategy = evaluate_trading_strategy(actual_prices=actual_prices, predicted_prices=reconstructed_prices)
 
     torch.save(model.state_dict(), paths.model_dir / f"{ticker_data.ticker}_{model_name}.pt")
 
@@ -200,10 +243,10 @@ def _evaluate_one(
             "predicted_return": preds,
             "pred_lower_return": lower,
             "pred_upper_return": upper,
-            "actual_price": actual_prices,
-            "reconstructed_price": pred_prices,
-            "actual": actual_prices,
-            "predicted": pred_prices,
+            "reconstructed_price": reconstructed_prices,
+            "actual_price_reconstructed": actual_prices,
+            "actual": truth,
+            "predicted": preds,
             "pred_lower": lower_prices,
             "pred_upper": upper_prices,
             "mae": mae,
@@ -226,6 +269,7 @@ def _evaluate_one(
         "width_mean": float(np.mean(upper - lower)),
         "width_p90": float(np.percentile(upper - lower, 90)),
         "vix": current_vix,
+        "conformal_qhat": float(qhat),
         "width_vix_40_mean": float(np.mean((upper - lower) * (2.2 / (1.0 if current_vix < 15 else 1.3 if current_vix < 25 else 1.7 if current_vix < 35 else 2.2)))),
     }
     return row, forecast_df, strategy, preds, val_preds, stop_epoch, calib, interval_debug
@@ -269,7 +313,7 @@ def run_training_pipeline() -> None:
             training_debug[f"{ticker}_{model_name}"] = {"early_stop_epoch": stop_epoch, "calibration": calib, "interval_debug": interval_debug}
             print(f"{ticker} {model_name} early_stopped_at_epoch={stop_epoch}")
 
-        ensemble_test, ensemble_weights = _dynamic_ensemble(test_pred_map, val_pred_map, ticker_data.val_y, rolling_window=21)
+        ensemble_test, ensemble_weights = _stacking_ensemble(test_pred_map, val_pred_map, ticker_data.val_y)
         ensemble_val, _ = _dynamic_ensemble(val_pred_map, val_pred_map, ticker_data.val_y, rolling_window=21)
 
         ens_mae = float(mean_absolute_error(ticker_data.test_y, ensemble_test))
@@ -283,8 +327,8 @@ def run_training_pipeline() -> None:
         ens_upper = ensemble_test + ens_radius
         ens_cov = interval_coverage(ticker_data.test_y, ens_lower, ens_upper)
         last_known_price = float(ticker_data.full_frame["Close"].iloc[-len(ticker_data.test_y) - 1])
-        ens_pred_prices = _returns_to_prices(last_known_price, ensemble_test)
-        ens_true_prices = _returns_to_prices(last_known_price, ticker_data.test_y)
+        ens_pred_prices = reconstruct_prices(last_known_price, ensemble_test)
+        ens_true_prices = reconstruct_prices(last_known_price, ticker_data.test_y)
         ens_strategy = evaluate_trading_strategy(actual_prices=ens_true_prices, predicted_prices=ens_pred_prices)
         buy_hold = evaluate_buy_and_hold(ens_true_prices)
 
@@ -305,16 +349,15 @@ def run_training_pipeline() -> None:
                     "date": ticker_data.test_dates.values,
                     "ticker": ticker,
                     "model": "ensemble",
-                    "actual": ticker_data.test_y,
                     "predicted_return": ensemble_test,
                     "pred_lower_return": ens_lower,
                     "pred_upper_return": ens_upper,
-                    "actual_price": ens_true_prices,
                     "reconstructed_price": ens_pred_prices,
-                    "actual": ens_true_prices,
-                    "predicted": ens_pred_prices,
-                    "pred_lower": _returns_to_prices(last_known_price, ens_lower),
-                    "pred_upper": _returns_to_prices(last_known_price, ens_upper),
+                    "actual_price_reconstructed": ens_true_prices,
+                    "actual": ticker_data.test_y,
+                    "predicted": ensemble_test,
+                    "pred_lower": reconstruct_prices(last_known_price, ens_lower),
+                    "pred_upper": reconstruct_prices(last_known_price, ens_upper),
                     "mae": ens_mae,
                     "rmse": ens_rmse,
                     "mape": ens_mape,
@@ -334,6 +377,12 @@ def run_training_pipeline() -> None:
 
     vix_now = _latest_close_scalar("^VIX")
     vix_regime = "calm" if vix_now < 15 else "moderate" if vix_now < 25 else "elevated" if vix_now < 35 else "crisis"
+    spy = prepare_ticker_data(data_cfg=data_cfg, paths_cfg=paths, ticker="SPY")
+    regime = detect_market_regime(
+        returns=spy.full_frame["Log_Return"].values,
+        vix=spy.full_frame.get("VIX_Zscore", pd.Series(np.zeros(len(spy.full_frame)))).values,
+        volume=spy.full_frame["Volume"].values,
+    )
     with paths.metrics_file.open("w", encoding="utf-8") as f:
         json.dump(
             {
@@ -344,6 +393,7 @@ def run_training_pipeline() -> None:
                 "training_debug": training_debug,
                 "current_vix": vix_now,
                 "vix_regime": vix_regime,
+                "market_regime": regime,
             },
             f,
             indent=2,

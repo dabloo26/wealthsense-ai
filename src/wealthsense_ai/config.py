@@ -27,7 +27,7 @@ class DataConfig:
     target_column: str = "Log_Return"
     feature_columns: list[str] = field(
         default_factory=lambda: [
-            "Close",
+            "Log_Return",
             "Volume",
             "SMA_10",
             "SMA_30",
@@ -35,10 +35,14 @@ class DataConfig:
             "RSI_14",
             "Daily_Return",
             "Volatility_10",
-            "Log_Return",
             "VIX_Zscore",
             "Yield_Spread",
             "DXY",
+            "FedFunds",
+            "CPI_MoM",
+            "Sentiment_5D",
+            "Earnings_Next5D",
+            "Corr_SPY_20",
         ]
     )
 
@@ -63,6 +67,7 @@ class PathsConfig:
     root_dir: Path = Path(__file__).resolve().parents[3]
     artifact_dir: Path = root_dir / "wealthsense-ai" / "artifacts"
     data_cache_dir: Path = artifact_dir / "data_cache"
+    feature_store_dir: Path = artifact_dir / "feature_store"
     model_dir: Path = artifact_dir / "models"
     metrics_file: Path = artifact_dir / "metrics.json"
     forecasts_file: Path = artifact_dir / "forecasts.csv"
@@ -71,5 +76,6 @@ class PathsConfig:
     def ensure(self) -> None:
         self.artifact_dir.mkdir(parents=True, exist_ok=True)
         self.data_cache_dir.mkdir(parents=True, exist_ok=True)
+        self.feature_store_dir.mkdir(parents=True, exist_ok=True)
         self.model_dir.mkdir(parents=True, exist_ok=True)
 

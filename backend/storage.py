@@ -67,6 +67,28 @@ class PersistenceStore:
             row = conn.execute("SELECT payload_json FROM user_profiles WHERE token = ?", (token,)).fetchone()
         return json.loads(row[0]) if row else None
 
+    def update_user_profile(self, token: str, updates: dict[str, Any]) -> dict[str, Any]:
+        profile = self.get_user_profile(token) or {"token": token}
+        profile.update(updates)
+        self.save_user_profile(token, profile)
+        return profile
+
+    def find_token_by_email(self, email: str) -> str | None:
+        if self._supabase is not None:
+            resp = self._supabase.table("user_profiles").select("token,email").eq("email", email).limit(1).execute()
+            data = resp.data or []
+            return str(data[0]["token"]) if data else None
+        with sqlite3.connect(self._sqlite_path) as conn:
+            rows = conn.execute("SELECT token, payload_json FROM user_profiles").fetchall()
+        for token, payload_json in rows:
+            try:
+                payload = json.loads(payload_json)
+                if str(payload.get("email", "")).lower() == email.lower():
+                    return str(token)
+            except Exception:
+                continue
+        return None
+
     def save_portfolio(self, token: str, payload: dict[str, Any]) -> None:
         payload = {"token": token, **payload}
         if self._supabase is not None:
@@ -150,6 +172,43 @@ class PersistenceStore:
                 (token,),
             ).fetchone()
         return int(row[0] if row else 0)
+
+    def export_account_data(self, token: str) -> dict[str, Any]:
+        profile = self.get_user_profile(token) or {}
+        portfolio = self.latest_portfolio(token) or {}
+        goal_plan = self.latest_goal_plan() or {}
+        forecast = self.latest_forecast(token) or {}
+        audit_events: list[dict[str, Any]] = []
+        with sqlite3.connect(self._sqlite_path) as conn:
+            rows = conn.execute(
+                "SELECT event_type, payload_json, created_at FROM audit_log WHERE token = ? ORDER BY id DESC LIMIT 200",
+                (token,),
+            ).fetchall()
+        for event_type, payload_json, created_at in rows:
+            try:
+                payload = json.loads(payload_json)
+            except Exception:
+                payload = {"raw": str(payload_json)}
+            audit_events.append({"event_type": event_type, "created_at": created_at, "payload": payload})
+        return {
+            "profile": profile,
+            "latest_portfolio": portfolio,
+            "latest_goal_plan": goal_plan,
+            "latest_forecast": forecast,
+            "recent_audit_events": audit_events,
+        }
+
+    def delete_account_data(self, token: str) -> None:
+        if self._supabase is not None:
+            self._supabase.table("user_profiles").delete().eq("token", token).execute()
+            self._supabase.table("portfolios").delete().eq("token", token).execute()
+            self._supabase.table("audit_log").delete().eq("token", token).execute()
+            return
+        with sqlite3.connect(self._sqlite_path) as conn:
+            conn.execute("DELETE FROM user_profiles WHERE token = ?", (token,))
+            conn.execute("DELETE FROM portfolios WHERE token = ?", (token,))
+            conn.execute("DELETE FROM audit_log WHERE token = ?", (token,))
+            conn.commit()
 
     def _build_supabase_client(self) -> Client | None:
         url = os.getenv("SUPABASE_URL", "").strip()

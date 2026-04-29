@@ -44,3 +44,8 @@ class PortfolioRequest(BaseModel):
     assets: list[dict[str, object]]
 
 
+class AllocationRequest(BaseModel):
+    tickers: list[str] = Field(min_length=1, max_length=10)
+    risk_tolerance: str = Field(default="balanced")
+
+

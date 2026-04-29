@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.20.0",
     "clsx": "^2.1.1",
+    "graphify": "^1.0.0",
     "lucide-react": "^1.9.0",
     "next": "16.2.4",
     "react": "19.2.4",

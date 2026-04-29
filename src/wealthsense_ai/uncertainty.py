@@ -49,6 +49,30 @@ def regime_adjusted_intervals(
     return midpoint - half_width, midpoint + half_width
 
 
+def conformal_quantile(
+    y_cal: np.ndarray,
+    lower_cal: np.ndarray,
+    upper_cal: np.ndarray,
+    alpha: float = 0.1,
+) -> float:
+    """
+    Compute split-conformal correction from calibration residuals.
+    """
+    if len(y_cal) == 0:
+        return 0.0
+    nonconformity = np.maximum(lower_cal - y_cal, y_cal - upper_cal)
+    q = float(np.quantile(nonconformity, min(1.0, (1.0 - alpha) * (len(nonconformity) + 1) / len(nonconformity))))
+    return max(0.0, q)
+
+
+def apply_conformal_correction(
+    lower: np.ndarray,
+    upper: np.ndarray,
+    qhat: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    return lower - qhat, upper + qhat
+
+
 def interval_coverage(y_true: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> float:
     covered = (y_true >= lower) & (y_true <= upper)
     return float(np.mean(covered))

@@ -67,3 +67,29 @@ def summarize_forecasts(df: pd.DataFrame) -> pd.DataFrame:
         directional_accuracy=("directional_accuracy", "mean"),
     )
     return grouped.sort_values(["ticker", "mape"], ascending=[True, True])
+
+
+def suggest_allocation(
+    tickers: list[str],
+    expected_returns: np.ndarray,
+    risk_tolerance: str = "balanced",
+    max_weight: float = 0.4,
+) -> dict[str, float]:
+    if len(tickers) == 0:
+        return {}
+    er = np.asarray(expected_returns, dtype=float)
+    if er.size != len(tickers):
+        er = np.resize(er, len(tickers))
+
+    if risk_tolerance == "conservative":
+        temperature = 8.0
+    elif risk_tolerance == "aggressive":
+        temperature = 18.0
+    else:
+        temperature = 12.0
+
+    scaled = np.exp(np.clip(er * temperature, -10, 10))
+    weights = scaled / np.maximum(scaled.sum(), 1e-9)
+    weights = np.minimum(weights, max_weight)
+    weights = weights / np.maximum(weights.sum(), 1e-9)
+    return {ticker: float(w) for ticker, w in zip(tickers, weights)}
