@@ -1,105 +1,144 @@
 # WealthSense AI
 
-Working end-to-end implementation of the proposal with a beginner-first UX: deep-learning forecasting + goal planning + portfolio insights + startup-oriented dashboard experience.
+WealthSense AI is a personal finance forecasting product with:
 
-## What Was Built
+- live market and macro-aware forecasts
+- Monte Carlo goal planning
+- AI coach chat
+- tiered billing
+- FastAPI backend + Next.js frontend
+- ongoing ML pipeline upgrades (Step 9 in progress)
 
-- **Data layer**
-  - Pulls Yahoo Finance daily OHLCV data for `AAPL`, `MSFT`, `NVDA`, `TSLA`, `SPY`
-  - Uses fixed range `2015-01-01` to `2023-12-31`
-  - Caches data to `artifacts/data_cache/` for reproducible demos
-- **Feature engineering**
-  - `SMA_10`, `SMA_30`, `EMA_12`, `RSI_14`, `Daily_Return`, `Volatility_10`
-  - 30-day rolling sequence windows for supervised forecasting
-  - Split policy:
-    - Train: `2015-2021`
-    - Validation: `2022`
-    - Test: `2023`
-- **Modeling**
-  - PyTorch implementations of:
-    - `LSTM` (2-layer)
-    - `GRU` (2-layer)
-    - Encoder-only `Transformer` with positional encoding
-  - Early stopping + AdamW optimizer
-- **Evaluation**
-  - `MAE`, `RMSE`, `MAPE`, directional accuracy
-  - Conformal 90% prediction intervals + interval coverage
-  - Inverse-RMSE weighted **ensemble** model
-- **Portfolio strategy simulation**
-  - Model-signal strategy performance
-  - Buy-and-hold baseline
-  - Metrics: cumulative return, Sharpe, max drawdown
-- **Goal-based planning**
-  - Monte Carlo engine for goal success probability
-  - Expected terminal value + suggested monthly contribution
-- **Website (Streamlit app)**
-  - Beginner-friendly `Start Here` onboarding flow
-  - Simplified `Your Portfolio` and `Market Insights` views
-  - Goal Planner with plain-language success guidance
-  - Scenario Studio and advanced controls hidden behind simpler defaults
-  - Startup-friendly `Ops & Downloads` module for demos and reporting
+## Current Product State
 
-## Current Folder Map
+Implemented through Step 8 and actively building Step 9.
 
-- `src/wealthsense_ai/data.py` - download, normalize, feature engineering, sequence creation
-- `src/wealthsense_ai/models.py` - LSTM/GRU/Transformer model classes
-- `src/wealthsense_ai/train.py` - full train/evaluate pipeline, artifact generation
-- `src/wealthsense_ai/strategy.py` - trading + benchmark metrics
-- `src/wealthsense_ai/simulation.py` - Monte Carlo goal engine
-- `src/wealthsense_ai/uncertainty.py` - conformal interval utilities
-- `src/wealthsense_ai/app.py` - Streamlit website/dashboard
-- `artifacts/` - generated trained outputs for demo
-- `run_all.sh` - one command to install, train, and launch
+### Backend (`backend/`)
 
-## One-Command Run (Recommended)
+- FastAPI API with health, forecasting, goal planning, auth/profile/portfolio, coach, billing, and operations endpoints
+- SQLite fallback persistence with Supabase-ready integration
+- Structured request logging (`loguru`) for endpoint/user/latency/model version
+- Drift status endpoint: `GET /ops/drift`
+- GDPR basics:
+  - `GET /account/export`
+  - `DELETE /account/delete`
+- Weekly retraining workflow in GitHub Actions (`.github/workflows/retrain.yml`)
+- Sentry wiring (safe no-op until DSN is provided)
 
-From repo root:
+### Frontend (`frontend/`)
 
-```bash
-cd wealthsense-ai
-./run_all.sh
-```
+- Next.js + TypeScript + Tailwind app
+- Product routes:
+  - `/`
+  - `/onboarding`
+  - `/dashboard`
+  - `/forecast`
+  - `/goals`
+  - `/strategy`
+  - `/settings`
+- Dashboard AI coach integration with streaming responses
+- Sentry client init hook (safe no-op until `NEXT_PUBLIC_SENTRY_DSN` is set)
 
-This script:
-1. Installs dependencies
-2. Trains all models
-3. Generates all artifacts
-4. Launches Streamlit website
+### ML Pipeline (`src/wealthsense_ai/`)
 
-## Manual Commands
+- Targets **log returns** with reconstructed price outputs for display
+- Models: `lstm`, `gru`, `transformer`, plus a `tft` model path (TFT-compatible regressor scaffold)
+- Training safeguards:
+  - gradient clipping
+  - ReduceLROnPlateau scheduler
+  - early stopping
+- Uncertainty:
+  - MC dropout intervals
+  - VIX regime widening
+  - split-conformal correction
+- Ensemble:
+  - Ridge stacking meta-model
+  - rolling residual spread for interval radius
+- Regime detection:
+  - Gaussian HMM when available (`hmmlearn`)
+  - fallback rules when unavailable
 
-From repo root:
+## Step 9 Progress Snapshot
 
-```bash
-npm run wealthsense:train
-npm run wealthsense:dashboard
-```
+In progress and partially implemented:
 
-## Artifacts Produced
+- Task 9.1: enriched features (`DXY`, `FedFunds`, `CPI_MoM`, `Sentiment_5D`, `Earnings_Next5D`, `Corr_SPY_20`) and local feature-store artifacts
+- Task 9.2: conformal interval calibration
+- Task 9.3: stacking ensemble
+- Task 9.4: regime detection module
+- Task 9.5: TFT model path scaffold
+- Task 9.6: constrained allocation suggestion endpoint (`POST /allocation/suggest`)
 
-- `artifacts/metrics.json` - config + per-model metrics
-- `artifacts/forecasts.csv` - predicted vs actual values + intervals
-- `artifacts/strategy_results.csv` - strategy and buy-and-hold results
-- `artifacts/models/*.pt` - trained PyTorch model weights
-- `artifacts/data_cache/*.csv` - cached Yahoo Finance data
+Still pending for full Step 9 completion:
 
-## Optional AI Chat Setup
+- full FinBERT headline ingestion pipeline
+- full cross-asset correlation matrix feature block
+- PostgreSQL feature-store sync
+- full `pytorch-forecasting` TFT training pipeline
+- Stable Baselines3 PPO allocator training
+
+## Local Run
+
+### 1) Install dependencies
 
 ```bash
-export ANTHROPIC_API_KEY=your_key_here
+/usr/bin/python3 -m pip install --user -r requirements.txt
 ```
 
-If no key is set, the dashboard still works and shows all non-LLM features.
+```bash
+cd frontend
+npm install
+cd ..
+```
 
-## Handoff Notes For New Team Members
+### 2) Run backend
 
-- Start at `src/wealthsense_ai/train.py` to understand the end-to-end training flow.
-- Use `src/wealthsense_ai/config.py` to adjust tickers, model sizes, epochs, and paths.
-- Do not edit files in `artifacts/` manually; regenerate by rerunning training.
-- For project demos, use cached data in `artifacts/data_cache` to avoid live API risk.
+```bash
+PYTHONPATH=src /usr/bin/python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
 
-## What’s Next (If You Want To Improve It Further)
+### 3) Run frontend
 
-- Add macroeconomic exogenous features (rates, CPI, VIX, earnings events).
-- Add walk-forward validation for stricter time-series rigor.
-- Add drift detection and scheduled retraining jobs.
+```bash
+cd frontend
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+### 4) (Optional) Run Streamlit app
+
+```bash
+PYTHONPATH=src python3 -m streamlit run src/wealthsense_ai/app.py --server.headless true --server.address 127.0.0.1 --server.port 8522
+```
+
+## Environment Variables
+
+See `.env.example`. Common optional keys:
+
+- `ANTHROPIC_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `STRIPE_SECRET_KEY`
+- `SENTRY_DSN`
+- `NEXT_PUBLIC_SENTRY_DSN`
+- `MODEL_VERSION`
+- `DRIFT_BASELINE_MAE`
+- `DRIFT_THRESHOLD_MULTIPLIER`
+
+## Key Artifacts
+
+- `artifacts/metrics.json`
+- `artifacts/forecasts.csv`
+- `artifacts/strategy_results.csv`
+- `artifacts/models/*.pt`
+- `artifacts/feature_store/*.csv`
+
+## Testing
+
+```bash
+PYTHONPATH=src /usr/bin/python3 -m pytest tests/test_backend_api.py
+```
+
+## Notes
+
+- Do not manually edit generated files in `artifacts/`; regenerate by running training.
+- Current branch may include local model/cache artifacts not intended for commit.
